@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import sys
+from typing import Coroutine
 
 from playwright.async_api import async_playwright
 
@@ -16,7 +17,7 @@ class SnapshotTaskBase:
         self.ready = False
         self.logger = logging.getLogger(__name__)
 
-    def get_task(self):
+    def get_task(self) -> Coroutine:
         return self._playwright_browser_forever()
 
     async def _playwright_browser_forever(self):
@@ -30,16 +31,22 @@ class SnapshotTaskBase:
             self.ready = True
             await asyncio.sleep(sys.float_info.max)
 
-    async def snapshot(self, url):
+    async def snapshot(self, url, format='jpeg') -> dict:
         self.logger.info(f"request to take snapshot. [{url=}]")
         await self._assert_ready()
         page_instance = await self.page_pool.acquire()
         await self._load_page(page_instance, url)
         await self.pre_process_page(page_instance)
-        snapshot_bytes = await page_instance.screenshot(full_page=True)
+        snapshot_result = {'title': await page_instance.title()}
+        if format == 'jpeg':
+            snapshot_result['jpeg'] = await page_instance.screenshot(full_page=True, type='jpeg')
+        elif format == 'mhtml':
+            client = await page_instance.context.new_cdp_session(page_instance)
+            response = await client.send(method='Page.captureSnapshot', params={'format': 'mhtml'})
+            snapshot_result['mhtml'] = response['data'].encode()
         self.logger.info(f"snapshot saved. [{url=}]")
         await self.page_pool.release(page_instance)
-        return snapshot_bytes
+        return snapshot_result
 
     async def _assert_ready(self):
         if self.ready:

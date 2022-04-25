@@ -4,7 +4,6 @@ import logging
 import os
 import re
 import sys
-import uuid
 
 import discord
 from discord.ext.commands import Bot
@@ -40,11 +39,14 @@ class SnapshotBot(Bot):
             return
         url_result = self.url_patten.search(message.content)
         if url_result is not None:
-            discord_file = discord.File(
-                fp=io.BytesIO(await self.snapshot_task.snapshot(url_result['url'])),
-                filename=f"{uuid.uuid4()}.png"
-            )
-            await message.channel.send(file=discord_file, reference=message)
+            snapshot_result = await self.snapshot_task.snapshot(url_result['url'])
+            await message.channel.send(file=discord.File(
+                fp=io.BytesIO(snapshot_result['jpeg']), filename=f"{snapshot_result['title']}.jpeg"),
+                reference=message)
+            snapshot_result = await self.snapshot_task.snapshot(url_result['url'], format='mhtml')
+            await message.channel.send(file=discord.File(
+                fp=io.BytesIO(snapshot_result['mhtml']), filename=f"{snapshot_result['title']}.mhtml"),
+                reference=message)
 
 
 if __name__ == '__main__':
