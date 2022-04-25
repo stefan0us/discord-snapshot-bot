@@ -27,12 +27,15 @@ class CustomizedSnapshotTask(SnapshotTaskBase):
 
 class SnapshotBot(Bot):
 
-    async def on_ready(self):
+    def __init__(self, *args, **kwargs):
         self.logger = logging.getLogger(__name__)
-        self.logger.info(f'discord server connected. [{self.user.name=}]')
-        self.snapshot_task = CustomizedSnapshotTask()
         self.url_patten = re.compile(r'(?P<url>https?://[^\s]+)')
+        self.snapshot_task = CustomizedSnapshotTask()
         asyncio.get_event_loop().create_task(self.snapshot_task.get_task())
+        super().__init__(*args, **kwargs)
+
+    async def on_ready(self):
+        self.logger.info(f'discord server connected. [{self.user.name=}]')
 
     async def on_message(self, message):
         if message.author == self.user:
