@@ -26,27 +26,28 @@ class SnapshotTaskBase:
 
             class PageFactory(AsyncObjectFactory):
                 async def create(self):
-                    return await browser.new_page()
+                    page = await browser.new_page()
+                    # await page.set_viewport_size({"width": 1920, "height": 1080})
+                    return page
             self.page_pool = await AsyncObjectPool.new_instance(PageFactory(), self.pool_size)
             self.ready = True
             await asyncio.sleep(sys.float_info.max)
 
-    async def snapshot(self, url, format='jpeg') -> dict:
+    async def snapshot(self, url, format='jpeg') -> bytes:
         self.logger.info(f"request to take snapshot. [{url=}]")
         await self._assert_ready()
         page_instance = await self.page_pool.acquire()
         await self._load_page(page_instance, url)
         await self.pre_process_page(page_instance)
-        snapshot_result = {'title': await page_instance.title()}
         if format == 'jpeg':
-            snapshot_result['jpeg'] = await page_instance.screenshot(full_page=True, type='jpeg')
+            snapshot_bytes = await page_instance.screenshot(full_page=True, type='jpeg')
         elif format == 'mhtml':
             client = await page_instance.context.new_cdp_session(page_instance)
             response = await client.send(method='Page.captureSnapshot', params={'format': 'mhtml'})
-            snapshot_result['mhtml'] = response['data'].encode()
+            snapshot_bytes = response['data'].encode()
         self.logger.info(f"snapshot saved. [{url=}]")
         await self.page_pool.release(page_instance)
-        return snapshot_result
+        return snapshot_bytes
 
     async def _assert_ready(self):
         if self.ready:
@@ -57,6 +58,12 @@ class SnapshotTaskBase:
 
     async def _load_page(self, page, url):
         await page.goto(url, wait_until='domcontentloaded')
+        scroll_height = await page.evaluate('document.body.scrollHeight')
+        self.logger.info(f'find scroll height. [{scroll_height=}, {url=}]')
+        for height in range(0, scroll_height, 100):
+            self.logger.debug(f'trace current height. [{height=}, {url=}]')
+            await page.evaluate(f'() => window.scrollTo(0, {height})')
+            await asyncio.sleep(0.1)
         try:
             await page.wait_for_load_state(state='networkidle', timeout=self.loading_timeout)
         except Exception:
