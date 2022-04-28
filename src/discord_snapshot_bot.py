@@ -43,11 +43,12 @@ class SnapshotBot(Bot):
             return
         url_result = self.url_patten.search(message.content)
         if url_result is not None:
-            snapshot_id = uuid.uuid4()
-            await message.channel.send(file=discord.File(
-                fp=io.BytesIO(await self.snapshot_task.snapshot(url_result['url'])),
-                filename=f"{snapshot_id}.jpeg"),
-                reference=message)
+            async with message.channel.typing():
+                snapshot_id = uuid.uuid4()
+                await message.channel.send(file=discord.File(
+                    fp=io.BytesIO(await self.snapshot_task.snapshot(url_result['url'])),
+                    filename=f"{snapshot_id}.jpeg"),
+                    reference=message)
 
 
 if __name__ == '__main__':
