@@ -9,7 +9,7 @@ import uuid
 import discord
 from discord.ext.commands import Bot
 
-from utils.customized_snapshot_handler import CustomizedSnapshotHandler
+from utils.playwright_helper import SnapshotHandler
 
 
 class SnapshotBot(Bot):
@@ -17,21 +17,21 @@ class SnapshotBot(Bot):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         logging.basicConfig(format="%(asctime)s %(name)s %(levelname)s %(message)s",
-                            stream=sys.stdout, level=logging.DEBUG)
+                            stream=sys.stdout, level=logging.INFO)
         self.logger = logging.getLogger(__name__)
         self.url_patten = re.compile(r'(?P<url>https?://[^\s]+)')
-        self.snapshot_handler = CustomizedSnapshotHandler()
+        self.snapshot_handler = SnapshotHandler()
         self.loop.create_task(self.snapshot_handler.get_task())
 
     async def on_ready(self):
         self.logger.info(f'discord server connected. [{self.user.name=}]')
 
-    async def on_message(self, message):
+    async def on_message(self, message: discord.Message):
         if message.author == self.user:
             return
         await self.take_snapshot(message)
 
-    async def take_snapshot(self, message):
+    async def take_snapshot(self, message: discord.Message):
         url_result = self.url_patten.search(message.content)
         if url_result:
             async with message.channel.typing():

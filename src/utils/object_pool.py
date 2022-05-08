@@ -1,19 +1,14 @@
 import asyncio
-from abc import abstractmethod
-
-
-class AsyncObjectFactory:
-
-    @abstractmethod
-    async def create(self):
-        raise NotImplementedError()
+from typing import Callable
 
 
 class AsyncObjectPool:
 
-    async def new_instance(factory: AsyncObjectFactory, max_size: int):
+    async def new_instance(create_func: Callable, max_size: int = 3, *args, **kwargs):
         self = AsyncObjectPool()
-        self.factory = factory
+        self.create_func = create_func
+        self.args = args
+        self.kwargs = kwargs
         self.max_size = max_size
         self.pool = asyncio.queues.Queue(max_size)
         self.mutex = asyncio.Lock()
@@ -24,7 +19,11 @@ class AsyncObjectPool:
         async with self.mutex:
             if self.pool.empty():
                 if self.n_created < self.max_size:
-                    await self.pool.put(await self.factory.create())
+                    if asyncio.iscoroutinefunction(self.create_func):
+                        new_object = await self.create_func(*self.args, **self.kwargs)
+                    else:
+                        new_object = self.create_func(*self.args, **self.kwargs)
+                    await self.pool.put(new_object)
                     self.n_created += 1
         return await self.pool.get()
 
@@ -33,27 +32,20 @@ class AsyncObjectPool:
 
 
 if __name__ == '__main__':
-    class Integer:
-        def __init__(self, val):
-            self.val = val
+    from itertools import count
 
-    cnt = 0
-
-    class IntegerFactory(AsyncObjectFactory):
-        async def create(self):
-            global cnt
-            cnt += 1
-            return Integer(cnt)
+    cnt = count(0)
 
     async def test():
-        pool = await AsyncObjectPool.new_instance(IntegerFactory(), 3)
+        global cnt
+        pool = await AsyncObjectPool.new_instance(cnt.__next__, 3)
         a = await pool.acquire()
-        assert(a.val == 1)
+        assert(a == 0)
         b = await pool.acquire()
-        assert(b.val == 2)
+        assert(b == 1)
         await pool.release(a)
         c = await pool.acquire()
-        assert(c.val == 1)
+        assert(c == 0)
 
     event_loop = asyncio.new_event_loop()
     task = event_loop.create_task(test())
