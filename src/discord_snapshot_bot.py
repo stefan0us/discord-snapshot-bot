@@ -36,14 +36,17 @@ class SnapshotBot(Bot):
         if url_result:
             async with message.channel.typing():
                 try:
-                    snapshot_id = uuid.uuid4()
-                    await message.channel.send(file=discord.File(
-                        fp=io.BytesIO(await self.snapshot_handler.snapshot(url_result['url'])),
-                        filename=f"{snapshot_id}.jpeg"),
-                        reference=message)
+                    result = await self.snapshot_handler.snapshot(url_result['url'])
+                    await message.channel.send(
+                        result['title'],
+                        file=discord.File(
+                            fp=io.BytesIO(result['content']),
+                            filename=f"{uuid.uuid4()}.jpeg"),
+                        reference=message
+                    )
                 except Exception as e:
                     self.logger.exception(e)
-                    await message.channel.send(traceback.format_exc(), reference=message)
+                    await message.channel.send(f'```\n{traceback.format_exc()}\n```', reference=message)
 
 
 if __name__ == '__main__':

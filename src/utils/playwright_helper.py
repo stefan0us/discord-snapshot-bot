@@ -28,22 +28,24 @@ class SnapshotHandler:
             self.ready = True
             await asyncio.sleep(sys.float_info.max)
 
-    async def snapshot(self, url, format='jpeg') -> bytes:
+    async def snapshot(self, url, format='jpeg') -> dict:
         self.logger.info(f"request to take snapshot. [{url=}]")
         await self._assert_ready()
         page = await self.page_pool.acquire()
         await self.load_page(page, url)
         for page_preprocessor in page_preprocess_list:
             await page_preprocessor(page)
+        result = {'title': await page.title()}
         if format == 'jpeg':
             snapshot_bytes = await page.screenshot(full_page=True, type='jpeg')
         elif format == 'mhtml':
             client = await page.context.new_cdp_session(page)
             response = await client.send(method='Page.captureSnapshot', params={'format': 'mhtml'})
             snapshot_bytes = response['data'].encode()
-        self.logger.info(f"snapshot saved. [{url=}]")
+        result['content'] = snapshot_bytes
+        self.logger.info(f"snapshot saved. [{url=}, {result['title']=}]")
         await self.page_pool.release(page)
-        return snapshot_bytes
+        return result
 
     async def _assert_ready(self):
         if self.ready:
