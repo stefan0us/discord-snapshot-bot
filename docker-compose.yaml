@@ -8,8 +8,3 @@ services:
     restart: unless-stopped
     environment:
       - TOKEN
-    user: pwuser
-    ipc: host
-    volumes:
-      - ./src:/home/pwuser/src
-    command: python3 -u /home/pwuser/src/discord_snapshot_bot.py
