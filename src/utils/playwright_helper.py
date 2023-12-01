@@ -18,15 +18,16 @@ class SnapshotHandler:
         self.ready = False
         self.logger = logging.getLogger(__name__)
 
-    def get_task(self) -> Coroutine:
-        return self._playwright_browser_forever()
+    def get_task(self, close_checker) -> Coroutine:
+        return self._playwright_browser_task(close_checker)
 
-    async def _playwright_browser_forever(self):
+    async def _playwright_browser_task(self, close_checker):
         async with async_playwright() as p:
             browser = await p.chromium.launch()
             self.page_pool = await AsyncObjectPool.new_instance(browser.new_page, self.pool_size)
             self.ready = True
-            await asyncio.sleep(sys.float_info.max)
+            while not close_checker():
+                await asyncio.sleep(1)
 
     async def snapshot(self, url, format='jpeg') -> dict:
         self.logger.info(f"request to take snapshot. [{url=}]")
@@ -50,7 +51,8 @@ class SnapshotHandler:
     async def _assert_ready(self):
         if self.ready:
             return
-        async with asyncio.Condition() as cond:
+        cond = asyncio.Condition()
+        async with cond:
             await cond.wait_for(lambda: self.ready)
 
     async def load_page(self, page, url):

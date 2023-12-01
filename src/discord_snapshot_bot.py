@@ -11,6 +11,7 @@ from discord.ext.commands import Bot
 
 from utils.playwright_helper import SnapshotHandler
 
+running_tasks = set()
 
 class SnapshotBot(Bot):
 
@@ -21,10 +22,12 @@ class SnapshotBot(Bot):
         self.logger = logging.getLogger(__name__)
         self.url_patten = re.compile(r'(?P<url>https?://[^\s]+)')
         self.snapshot_handler = SnapshotHandler()
-        self.loop.create_task(self.snapshot_handler.get_task())
 
     async def on_ready(self):
         self.logger.info(f'discord server connected. [{self.user.name=}]')
+        task = self.loop.create_task(self.snapshot_handler.get_task(self.is_closed))
+        running_tasks.add(task)
+        task.add_done_callback(lambda t: running_tasks.remove(t))
 
     async def on_message(self, message: discord.Message):
         if message.author == self.user:
@@ -50,5 +53,7 @@ class SnapshotBot(Bot):
 
 
 if __name__ == '__main__':
-    client = SnapshotBot(command_prefix='')
+    intents = discord.Intents.default()
+    intents.message_content = True
+    client = SnapshotBot(intents=intents, command_prefix='')
     client.run(os.environ['TOKEN'])
