@@ -2,3 +2,5 @@ __pycache__/
 .vscode/
 .devcontainer/
 .env
+.venv
+stealth.min.js

@@ -23,8 +23,10 @@ class SnapshotHandler:
 
     async def _playwright_browser_task(self, close_checker):
         async with async_playwright() as p:
-            browser = await p.chromium.launch()
-            self.page_pool = await AsyncObjectPool.new_instance(browser.new_page, self.pool_size)
+            browser = await p.chromium.launch(ignore_default_args=['enable-automation'])
+            context = await browser.new_context(user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36 Edg/119.0.0.0')
+            await context.add_init_script(path='stealth.min.js')
+            self.page_pool = await AsyncObjectPool.new_instance(context.new_page, self.pool_size)
             self.ready = True
             while not close_checker():
                 await asyncio.sleep(1)
