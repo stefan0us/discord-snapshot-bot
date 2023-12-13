@@ -25,7 +25,7 @@ class SnapshotBot(Bot):
 
     async def on_ready(self):
         self.logger.info(f'discord server connected. [{self.user.name=}]')
-        snapshot_task = self.loop.create_task(self.snapshot_handler.get_task(self.is_closed))
+        snapshot_task = self.loop.create_task(self.snapshot_handler.get_task())
         self.handlers.add(snapshot_task)
 
     async def close(self):
@@ -46,9 +46,7 @@ class SnapshotBot(Bot):
                     result = await self.snapshot_handler.snapshot(url_result['url'])
                     await message.channel.send(
                         result['title'],
-                        file=discord.File(
-                            fp=io.BytesIO(result['content']),
-                            filename=f"{uuid.uuid4()}.jpeg"),
+                        file=discord.File(fp=io.BytesIO(result['content']), filename=f"{uuid.uuid4()}.jpeg"),
                         reference=message
                     )
                 except Exception as e:
